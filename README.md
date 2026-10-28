@@ -1,11 +1,15 @@
 # icn-my-station-db
 
-인천공항 대시보드의 데이터베이스 설계와 SQL 스키마를 팀 단위로 관리하기 위한 저장소입니다.
+인천공항 대시보드의 프론트엔드, 백엔드, 데이터 수집 및 데이터베이스 작업을 팀 단위로 관리하기 위한 저장소입니다.
 
 ## 폴더 구성
 
 ```text
 icn-my-station-db/
+├── frontend/     # 대시보드 화면과 사용자 인터페이스
+├── backend/      # 서버 API와 업무 로직
+├── collection/   # 데이터 수집과 전처리
+├── database/     # ERD, SQL 스키마와 마이그레이션
 ├── README.md     # 프로젝트 소개와 협업 안내
 ├── main.py       # 기존 PyCharm 샘플 스크립트 (원본 보존)
 └── .gitignore    # 비밀정보 및 로컬 생성 파일 제외 규칙
@@ -15,10 +19,10 @@ icn-my-station-db/
 
 ## 내려받고 작업 시작하기
 
-Git을 설치하고 GitHub 비공개 저장소 접근 권한을 받은 뒤, 저장소 페이지의 **Code**에서 HTTPS 주소를 복사합니다. 아래 `<저장소 HTTPS 주소>`를 실제 주소로 바꿔 실행합니다.
+Git을 설치하고 GitHub 비공개 저장소 접근 권한을 받은 뒤 다음 명령을 실행합니다.
 
 ```bash
-git clone <저장소 HTTPS 주소> icn-my-station-db
+git clone https://github.com/donacana/icn-my-station-db.git
 cd icn-my-station-db
 git switch main
 git pull --ff-only origin main
