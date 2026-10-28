@@ -29,7 +29,7 @@ def main() -> int:
                 cur.execute(QUERY)
                 columns = [col.name for col in cur.description]
                 rows = cur.fetchall()
-    except Exception as exc:  # 접속 정보가 담기지 않도록 종류와 메시지만 출력
+    except (psycopg.Error, RuntimeError) as exc:  # 접속 정보가 담기지 않도록 종류와 메시지만 출력
         print(f"실패: {type(exc).__name__}: {exc}")
         return 1
 
