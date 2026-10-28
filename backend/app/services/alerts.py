@@ -4,7 +4,7 @@ from datetime import timedelta
 
 from app.core.timeutil import now_kst
 from app.schemas import Alert, AlertSeverity, AlertType
-from app.services.flights import ensure_flight_exists
+from app.services.flights import resolve_my_flight_no
 
 # (id, 종류, 중요도, 제목, 내용, 편명, 중요 알림 여부, 발생 시각 오프셋(분))
 _MOCK_ROWS: list[tuple] = [
@@ -62,7 +62,7 @@ _MOCK_ROWS: list[tuple] = [
 
 
 def list_alerts(flight_no: str | None = None) -> list[Alert]:
-    my_flight_no = ensure_flight_exists(flight_no)
+    my_flight_no = resolve_my_flight_no(flight_no)
     now = now_kst()
     return [
         Alert(

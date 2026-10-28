@@ -77,10 +77,35 @@ def test_flights_my_flight_and_delay_rule(client):
     assert mine[0]["estimatedAt"] is not None
 
 
-@pytest.mark.parametrize("path", ["flights?type=DEPARTURE", "alerts", "dashboard/summary"])
-def test_unknown_flight_no_is_404(client, path):
-    sep = "&" if "?" in path else "?"
-    response = client.get(f"{API}/{path}{sep}flightNo=ZZ0000")
+def test_unknown_flight_no_is_200_without_highlight(client):
+    flights = client.get(f"{API}/flights", params={"type": "DEPARTURE", "flightNo": "ZZ0000"})
+    assert flights.status_code == 200
+    assert not any(f["isMyFlight"] for f in flights.json())
+
+    alerts = client.get(f"{API}/alerts", params={"flightNo": "ZZ0000"})
+    assert alerts.status_code == 200
+    assert not any(a["isMine"] for a in alerts.json())
+
+    summary = client.get(f"{API}/dashboard/summary", params={"flightNo": "ZZ0000"})
+    assert summary.status_code == 200
+    body = summary.json()
+    assert body["myFlightNo"] is None
+    assert not any(f["isMyFlight"] for f in body["flights"]["departures"])
+    assert not any(a["isMine"] for a in body["alerts"])
+
+
+def test_flight_detail(client):
+    response = client.get(f"{API}/flights/ke671")
+    assert response.status_code == 200
+    body = response.json()
+    assert_matches("Flight", body)
+    assert body["flightNo"] == "KE671"
+    assert body["isMyFlight"] is True
+    assert body["status"] == "DELAYED"
+
+
+def test_flight_detail_unknown_is_404(client):
+    response = client.get(f"{API}/flights/ZZ0000")
     assert response.status_code == 404
     assert set(response.json()) == {"detail"}
 
@@ -154,12 +179,23 @@ def test_websocket_messages(client):
     with client.websocket_connect("/ws/live") as ws:
         messages = [ws.receive_json() for _ in range(8)]
     for message in messages:
-        assert set(message) == {"topic", "data", "sentAt"}
+        assert set(message) == CONTRACT["WebSocket"]
         assert_kst(message["sentAt"])
     topics = [m["topic"] for m in messages]
     assert set(topics) == {"congestion", "flights", "stats", "alerts", "weather"}
-    congestion = {m["data"]["terminal"]: m["data"] for m in messages if m["topic"] == "congestion"}
-    assert set(congestion) == {"T1", "T2"}
+    scopes = {(m["topic"], m["scope"]) for m in messages}
+    assert scopes == {
+        ("congestion", "T1"),
+        ("congestion", "T2"),
+        ("flights", "DEPARTURE"),
+        ("flights", "ARRIVAL"),
+        ("stats", "DEPARTURE"),
+        ("stats", "ARRIVAL"),
+        ("alerts", None),
+        ("weather", None),
+    }
+    congestion = {m["scope"]: m["data"] for m in messages if m["topic"] == "congestion"}
+    assert all(scope == data["terminal"] for scope, data in congestion.items())
     for data in congestion.values():
         assert_matches("Congestion", data)
     for message in messages:
@@ -178,6 +214,7 @@ def test_openapi_has_all_rest_paths(client):
     assert set(paths) == {
         f"{API}/dashboard/summary",
         f"{API}/flights",
+        f"{API}/flights/{{flightNo}}",
         f"{API}/congestion",
         f"{API}/stats/flights",
         f"{API}/alerts",

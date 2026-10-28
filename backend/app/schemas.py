@@ -261,5 +261,7 @@ class DashboardSummary(CamelModel):
 
 class LiveMessage(CamelModel):
     topic: LiveTopic
+    # flights·stats는 DEPARTURE/ARRIVAL, congestion은 T1/T2, alerts·weather는 null
+    scope: str | None
     data: Any
     sent_at: datetime

@@ -128,36 +128,43 @@ def _normalize(flight_no: str | None) -> str | None:
     return flight_no.strip().upper() or None
 
 
-def ensure_flight_exists(flight_no: str | None) -> str | None:
-    """flightNo가 주어졌는데 없는 편명이면 FlightNotFoundError. 정규화된 편명을 돌려준다."""
+def resolve_my_flight_no(flight_no: str | None) -> str | None:
+    """요청한 편명이 있으면 정규화해서 돌려주고, 없는 편명이면 None(강조 없음)으로 처리한다."""
     normalized = _normalize(flight_no)
-    if normalized is not None and all(row[0] != normalized for row in _MOCK_ROWS):
-        raise FlightNotFoundError(normalized)
+    if normalized is None or all(row[0] != normalized for row in _MOCK_ROWS):
+        return None
     return normalized
 
 
+def _to_flight(row: tuple, my_flight_no: str | None) -> Flight:
+    no, airline, kind, city, code, offset, delay, terminal, gate, raw_status = row
+    scheduled = now_kst().replace(minute=0, second=0) + timedelta(minutes=offset)
+    return Flight(
+        flight_no=no,
+        airline=airline,
+        type=kind,
+        city=city,
+        airport_code=code,
+        scheduled_at=scheduled,
+        estimated_at=scheduled + timedelta(minutes=delay) if delay else None,
+        terminal=terminal,
+        gate=gate,
+        status=rules.resolve_status(raw_status, delay),
+        delay_minutes=delay,
+        is_my_flight=no == my_flight_no,
+    )
+
+
 def list_flights(direction: Direction, flight_no: str | None = None) -> list[Flight]:
-    my_flight_no = ensure_flight_exists(flight_no)
-    base = now_kst().replace(minute=0, second=0)
-    flights: list[Flight] = []
-    for no, airline, kind, city, code, offset, delay, terminal, gate, raw_status in _MOCK_ROWS:
-        if kind != direction:
-            continue
-        scheduled = base + timedelta(minutes=offset)
-        flights.append(
-            Flight(
-                flight_no=no,
-                airline=airline,
-                type=kind,
-                city=city,
-                airport_code=code,
-                scheduled_at=scheduled,
-                estimated_at=scheduled + timedelta(minutes=delay) if delay else None,
-                terminal=terminal,
-                gate=gate,
-                status=rules.resolve_status(raw_status, delay),
-                delay_minutes=delay,
-                is_my_flight=no == my_flight_no,
-            )
-        )
+    my_flight_no = resolve_my_flight_no(flight_no)
+    flights = [_to_flight(row, my_flight_no) for row in _MOCK_ROWS if row[2] == direction]
     return sorted(flights, key=lambda f: f.scheduled_at)
+
+
+def get_flight(flight_no: str) -> Flight:
+    """단건 조회. 없는 편명이면 FlightNotFoundError."""
+    normalized = _normalize(flight_no) or flight_no
+    for row in _MOCK_ROWS:
+        if row[0] == normalized:
+            return _to_flight(row, normalized)
+    raise FlightNotFoundError(normalized)

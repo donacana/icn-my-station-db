@@ -12,7 +12,7 @@ from app.services import alerts, congestion, facilities, flights, stats, weather
 
 
 def get_summary(flight_no: str | None = None) -> DashboardSummary:
-    my_flight_no = flights.ensure_flight_exists(flight_no)
+    my_flight_no = flights.resolve_my_flight_no(flight_no)
     limit = rules.SUMMARY_FLIGHT_LIMIT
     return DashboardSummary(
         generated_at=now_kst(),

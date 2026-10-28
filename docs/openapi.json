@@ -115,6 +115,48 @@
         }
       }
     },
+    "/api/v1/flights/{flightNo}": {
+      "get": {
+        "tags": [
+          "flights"
+        ],
+        "summary": "Get Flight",
+        "operationId": "get_flight_api_v1_flights__flightNo__get",
+        "parameters": [
+          {
+            "name": "flightNo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Flightno"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Flight"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/congestion": {
       "get": {
         "tags": [

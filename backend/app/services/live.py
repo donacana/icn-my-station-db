@@ -16,11 +16,14 @@ def _dump(data: BaseModel | list[BaseModel]):
 def build_snapshot() -> list[LiveMessage]:
     """토픽별 현재 상태. congestion은 터미널별, flights·stats는 방향별로 따로 보낸다."""
     sent_at = now_kst()
-    payloads: list[tuple[LiveTopic, BaseModel | list[BaseModel]]] = [
-        *((LiveTopic.CONGESTION, congestion.get_congestion(t)) for t in Terminal),
-        *((LiveTopic.FLIGHTS, flights.list_flights(d)) for d in Direction),
-        *((LiveTopic.STATS, stats.get_flight_stats(d)) for d in Direction),
-        (LiveTopic.ALERTS, alerts.list_alerts()),
-        (LiveTopic.WEATHER, weather.get_weather()),
+    payloads: list[tuple[LiveTopic, str | None, BaseModel | list[BaseModel]]] = [
+        *((LiveTopic.CONGESTION, t.value, congestion.get_congestion(t)) for t in Terminal),
+        *((LiveTopic.FLIGHTS, d.value, flights.list_flights(d)) for d in Direction),
+        *((LiveTopic.STATS, d.value, stats.get_flight_stats(d)) for d in Direction),
+        (LiveTopic.ALERTS, None, alerts.list_alerts()),
+        (LiveTopic.WEATHER, None, weather.get_weather()),
     ]
-    return [LiveMessage(topic=topic, data=_dump(data), sent_at=sent_at) for topic, data in payloads]
+    return [
+        LiveMessage(topic=topic, scope=scope, data=_dump(data), sent_at=sent_at)
+        for topic, scope, data in payloads
+    ]
