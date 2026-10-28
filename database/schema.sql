@@ -1,4 +1,4 @@
--- Consolidated PostgreSQL 14+ schema: initial schema + team naming/unit rules.
+-- Consolidated PostgreSQL 14+ schema: initial + team naming/units + dashboard fields.
 -- NEW DATABASE ONLY. Do not run against the existing shared RDS database.
 -- Use this file alone, NOT together with migrations/001_initial_schema.sql.
 -- Connect to an empty airport_dashboard database as its owner.
@@ -117,7 +117,15 @@ CREATE TABLE flight_operations (
     last_collected_at timestamptz NOT NULL,
     collection_run_id bigint NOT NULL,
     FOREIGN KEY (collection_run_id, source) REFERENCES api_collection_runs (collection_run_id, source),
-    CONSTRAINT flight_operations_source_uq UNIQUE (source_api_identifier, source_flight_id, source)
+    CONSTRAINT flight_operations_source_uq UNIQUE (source_api_identifier, source_flight_id, source),
+    -- Optional source fields; NULL means not yet supplied/verified.
+    is_codeshare boolean,
+    master_flight_number text,
+    master_source_flight_id text,
+    departure_airport_name text,
+    arrival_airport_name text,
+    departure_city_name text,
+    arrival_city_name text
 );
 CREATE INDEX flight_operations_terminal_schedule_idx ON flight_operations (terminal_id, scheduled_at);
 CREATE INDEX flight_operations_number_schedule_idx ON flight_operations (flight_number, scheduled_at);
@@ -151,7 +159,15 @@ CREATE TABLE flight_operation_history (
     collection_run_id bigint NOT NULL,
     FOREIGN KEY (flight_uid, source) REFERENCES flight_operations (flight_uid, source),
     FOREIGN KEY (collection_run_id, source) REFERENCES api_collection_runs (collection_run_id, source),
-    CONSTRAINT flight_operation_history_flight_collected_uq UNIQUE (flight_uid, collected_at)
+    CONSTRAINT flight_operation_history_flight_collected_uq UNIQUE (flight_uid, collected_at),
+    -- Optional source fields; NULL means not yet supplied/verified.
+    is_codeshare boolean,
+    master_flight_number text,
+    master_source_flight_id text,
+    departure_airport_name text,
+    arrival_airport_name text,
+    departure_city_name text,
+    arrival_city_name text
 );
 -- UNIQUE index supports backward scans for per-flight as-of lookup.
 CREATE INDEX flight_operation_history_origin_collected_idx
@@ -198,7 +214,9 @@ CREATE TABLE weather_observations (
     collected_at timestamptz NOT NULL,
     collection_run_id bigint NOT NULL,
     FOREIGN KEY (collection_run_id, source) REFERENCES api_collection_runs (collection_run_id, source),
-    CONSTRAINT weather_observations_airport_observed_uq UNIQUE (airport_icao, observed_at, source)
+    CONSTRAINT weather_observations_airport_observed_uq UNIQUE (airport_icao, observed_at, source),
+    -- Optional source fields; NULL means not yet supplied/verified.
+    weather_phenomena text
 );
 CREATE INDEX weather_observations_run_idx ON weather_observations (collection_run_id);
 
@@ -231,7 +249,11 @@ CREATE TABLE airport_facilities (
     location_description text,
     opening_hours_note text,
     CONSTRAINT airport_facilities_zone_terminal_fk FOREIGN KEY (zone_id, terminal_id)
-        REFERENCES airport_zones (zone_id, terminal_id)
+        REFERENCES airport_zones (zone_id, terminal_id),
+    -- Optional source fields; NULL means not yet supplied/verified.
+    products_description text,
+    arrival_departure_area text,
+    phone_number text
 );
 CREATE INDEX airport_facilities_terminal_type_idx ON airport_facilities (terminal_id, facility_type);
 CREATE INDEX airport_facilities_zone_terminal_idx ON airport_facilities (zone_id, terminal_id);
@@ -313,5 +335,14 @@ COMMENT ON COLUMN public.weather_observations.visibility_km
 
 -- Persist timezone for future connections to this database.
 ALTER DATABASE airport_dashboard SET timezone TO 'Asia/Seoul';
+
+COMMENT ON COLUMN public.flight_operations.is_codeshare IS 'TRUE: codeshare, FALSE: confirmed master flight, NULL: not yet verified.';
+COMMENT ON COLUMN public.flight_operations.master_source_flight_id IS 'Master operation UNIQ code from the same source API. Mapping requires API verification.';
+COMMENT ON COLUMN public.flight_operation_history.is_codeshare IS 'Codeshare classification at collection time. NULL means not yet verified.';
+COMMENT ON COLUMN public.flight_operation_history.master_source_flight_id IS 'Master operation UNIQ code at collection time, from the same source API.';
+COMMENT ON COLUMN public.airport_facilities.products_description IS 'Source description of products/services. Structured classification is not yet defined.';
+COMMENT ON COLUMN public.airport_facilities.arrival_departure_area IS 'Source label for arrival/departure area. Preserve original text until mapping is agreed.';
+COMMENT ON COLUMN public.airport_facilities.phone_number IS 'Phone number as text, preserving leading zeros, country code and separators.';
+COMMENT ON COLUMN public.weather_observations.weather_phenomena IS 'Source weather phenomenon code/text. Preserve original representation until mapping is agreed.';
 
 COMMIT;
