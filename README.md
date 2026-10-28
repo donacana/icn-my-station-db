@@ -1,0 +1,47 @@
+# icn-my-station-db
+
+인천공항 대시보드의 데이터베이스 설계와 SQL 스키마를 팀 단위로 관리하기 위한 저장소입니다.
+
+## 폴더 구성
+
+```text
+icn-my-station-db/
+├── README.md     # 프로젝트 소개와 협업 안내
+├── main.py       # 기존 PyCharm 샘플 스크립트 (원본 보존)
+└── .gitignore    # 비밀정보 및 로컬 생성 파일 제외 규칙
+```
+
+초기화 시점에 기존 ERD 또는 SQL 스키마 파일이 없어 스키마는 추가하지 않았습니다. 실제 설계가 확정되면 검토된 ERD와 SQL 파일을 추가하고 이 문서의 폴더 구성을 갱신합니다. Docker, Jenkins, AWS 배포 설정은 포함하지 않습니다.
+
+## 내려받고 작업 시작하기
+
+Git을 설치하고 GitHub 비공개 저장소 접근 권한을 받은 뒤, 저장소 페이지의 **Code**에서 HTTPS 주소를 복사합니다. 아래 `<저장소 HTTPS 주소>`를 실제 주소로 바꿔 실행합니다.
+
+```bash
+git clone <저장소 HTTPS 주소> icn-my-station-db
+cd icn-my-station-db
+git switch main
+git pull --ff-only origin main
+git switch -c feature/describe-your-change
+```
+
+현재는 실행 가능한 데이터베이스나 접속 설정이 없으므로 별도의 설치 또는 마이그레이션 명령은 없습니다. 데이터베이스 종류와 스키마가 정해지면 실행 방법을 추가합니다.
+
+변경 사항을 검토하고 필요한 파일만 커밋한 뒤 작업 브랜치를 올려 Pull Request를 생성합니다.
+
+```bash
+git diff
+git status --short
+git add <검토한 파일 경로>
+git diff --cached
+git commit -m "docs: describe database changes"
+git push -u origin feature/describe-your-change
+```
+
+## 비밀정보 관리
+
+- 실제 접속 문자열, API 키, 비밀번호, 토큰, 인증서 개인키는 커밋하지 않습니다.
+- 로컬 환경변수는 `.env` 또는 `.env.*` 파일에 보관합니다. 공유할 설정 설명에는 실제 값 대신 자리표시자를 사용합니다.
+- SQL·ERD·문서에도 비밀번호, 운영 데이터 또는 개인정보를 넣지 않습니다.
+- `.gitignore`는 파일 이름과 경로만 검사하므로 모든 비밀정보를 자동으로 탐지하지 않습니다. 커밋 전에 변경 내용을 직접 확인합니다.
+- 이미 추적 중인 파일은 `.gitignore`만으로 제외되지 않습니다. 비밀정보가 커밋되었다면 해당 키를 폐기·재발급하고 팀과 기록 정리 방법을 협의합니다.
