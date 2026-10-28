@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv sync:*)",
+      "Bash(uv add:*)",
+      "Bash(uv run:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$CLAUDE_PROJECT_DIR/backend\" && uv run ruff format . && uv run ruff check --fix ."
+          }
+        ]
+      }
+    ]
+  }
+}
