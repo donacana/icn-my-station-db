@@ -1,0 +1,29 @@
+name: icn-jenkins
+services:
+  jenkins:
+    image: jenkins/jenkins:lts-jdk21
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+  agent:
+    profiles: [agent]
+    build:
+      context: .
+      dockerfile: Dockerfile.agent
+    restart: unless-stopped
+    init: true
+    environment:
+      JENKINS_URL: http://jenkins:8080
+      JENKINS_AGENT_NAME: icn-ci
+      JENKINS_SECRET: ${JENKINS_AGENT_TOKEN:-}
+      JENKINS_WEB_SOCKET: "true"
+      JENKINS_AGENT_WORKDIR: /home/jenkins/agent
+    depends_on:
+      - jenkins
+    volumes:
+      - agent_work:/home/jenkins/agent
+volumes:
+  jenkins_home:
+  agent_work:
