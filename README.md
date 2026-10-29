@@ -15,7 +15,9 @@ icn-my-station-db/
 └── .gitignore    # 비밀정보 및 로컬 생성 파일 제외 규칙
 ```
 
-초기화 시점에 기존 ERD 또는 SQL 스키마 파일이 없어 스키마는 추가하지 않았습니다. 실제 설계가 확정되면 검토된 ERD와 SQL 파일을 추가하고 이 문서의 폴더 구성을 갱신합니다. Docker, Jenkins, AWS 배포 설정은 포함하지 않습니다.
+`database/schema.sql`은 신규 데이터베이스 생성용입니다. 이미 운영 중인 RDS에는 재실행하지 않습니다.
+
+Jenkins 설치 구성은 `infra/jenkins/`, 파이프라인은 루트 `Jenkinsfile`에 있습니다. [Jenkins 설치 및 연결 안내](docs/jenkins-setup.md)에 따라 설정합니다. 현재 파이프라인은 CI 전용이며 RDS 변경과 애플리케이션 배포는 실행하지 않습니다.
 
 ## 내려받고 작업 시작하기
 
