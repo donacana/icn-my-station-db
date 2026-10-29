@@ -1,19 +1,24 @@
--- Consolidated PostgreSQL 14+ schema: initial schema + team naming/unit rules.
+-- ICN My Station | PostgreSQL 14+ consolidated schema as of 2026-10-29.
+-- This is a NEW EMPTY DATABASE bootstrap, NOT an RDS upgrade.
 -- NEW DATABASE ONLY. Do not run against the existing shared RDS database.
 -- Use this file alone, NOT together with migrations/001_initial_schema.sql.
 -- Connect to an empty airport_dashboard database as its owner.
--- Historical README/ERD may still show data_origin/visibility_m; this file uses final names.
+-- Reflects the API alignment SQL already applied to the development RDS.
+-- Original data columns from the 177-column baseline are preserved.
 -- No API credentials or fabricated operational seed data.
 -- Business uniqueness is scoped by source so api, yolo and demo can coexist.
 -- Source fields/units and mapping assumptions are documented in README.md.
+-- Uses TIMESTAMPTZ (instant in time); display dates/times in Asia/Seoul.
+-- If you already ran migration 002, DO NOT execute this bootstrap on that database.
 BEGIN;
 SET LOCAL search_path TO public;
 SET TIME ZONE 'Asia/Seoul';
 
 CREATE TABLE terminals (
     terminal_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    terminal_code text NOT NULL UNIQUE CHECK (terminal_code IN ('T1', 'T2')),
-    terminal_name text NOT NULL CHECK (btrim(terminal_name) <> '')
+    terminal_code text NOT NULL UNIQUE CHECK (terminal_code IN ('T1', 'T2', 'CONCOURSE')),
+    terminal_name text NOT NULL CHECK (btrim(terminal_name) <> ''),
+    source_terminal_code text UNIQUE CHECK (source_terminal_code IN ('P01', 'P02', 'P03'))
 );
 
 CREATE TABLE airport_zones (
@@ -24,12 +29,19 @@ CREATE TABLE airport_zones (
     hall_id text CHECK (hall_id IS NULL OR btrim(hall_id) <> ''),
     zone_name text NOT NULL,
     zone_type text NOT NULL,
+    hall_number integer CHECK (hall_number > 0),
+    gate_id text,
+    parent_zone_id bigint,
     CHECK (zone_type <> 'departure_hall' OR hall_id IS NOT NULL),
     CONSTRAINT airport_zones_terminal_hall_uq UNIQUE (terminal_id, hall_id),
     CONSTRAINT airport_zones_terminal_code_uq UNIQUE (terminal_id, zone_code),
     -- Composite target used to enforce facility/zone terminal consistency.
-    CONSTRAINT airport_zones_id_terminal_uq UNIQUE (zone_id, terminal_id)
+    CONSTRAINT airport_zones_id_terminal_uq UNIQUE (zone_id, terminal_id),
+    CONSTRAINT airport_zones_parent_terminal_fk FOREIGN KEY (parent_zone_id, terminal_id)
+        REFERENCES airport_zones (zone_id, terminal_id)
 );
+CREATE UNIQUE INDEX airport_zones_terminal_gate_uq
+    ON airport_zones (terminal_id, gate_id) WHERE gate_id IS NOT NULL;
 
 CREATE TABLE api_collection_runs (
     source text NOT NULL CHECK (source IN ('api', 'yolo', 'demo')),
@@ -74,6 +86,8 @@ CREATE TABLE congestion_snapshots (
     measured_at timestamptz NOT NULL CHECK (EXTRACT(SECOND FROM measured_at) = 0),
     source_measured_at timestamptz,
     waiting_passenger_count bigint NOT NULL CHECK (waiting_passenger_count >= 0),
+    wait_time_raw text,
+    operating_time text,
     -- YOLO counts are estimates; provenance must accompany the value.
     estimation_basis jsonb CHECK (jsonb_typeof(estimation_basis) = 'object'),
     CHECK (source <> 'yolo' OR estimation_basis IS NOT NULL),
@@ -117,7 +131,17 @@ CREATE TABLE flight_operations (
     last_collected_at timestamptz NOT NULL,
     collection_run_id bigint NOT NULL,
     FOREIGN KEY (collection_run_id, source) REFERENCES api_collection_runs (collection_run_id, source),
-    CONSTRAINT flight_operations_source_uq UNIQUE (source_api_identifier, source_flight_id, source)
+    CONSTRAINT flight_operations_source_uq UNIQUE (source_api_identifier, source_flight_id, source),
+    -- Optional source fields; NULL means not yet supplied/verified.
+    is_codeshare boolean,
+    master_flight_number text,
+    master_source_flight_id text,
+    departure_airport_name text,
+    arrival_airport_name text,
+    departure_city_name text,
+    arrival_city_name text,
+    codeshare_type text CHECK (codeshare_type IN ('Master', 'Slave')),
+    source_terminal_code text
 );
 CREATE INDEX flight_operations_terminal_schedule_idx ON flight_operations (terminal_id, scheduled_at);
 CREATE INDEX flight_operations_number_schedule_idx ON flight_operations (flight_number, scheduled_at);
@@ -151,7 +175,17 @@ CREATE TABLE flight_operation_history (
     collection_run_id bigint NOT NULL,
     FOREIGN KEY (flight_uid, source) REFERENCES flight_operations (flight_uid, source),
     FOREIGN KEY (collection_run_id, source) REFERENCES api_collection_runs (collection_run_id, source),
-    CONSTRAINT flight_operation_history_flight_collected_uq UNIQUE (flight_uid, collected_at)
+    CONSTRAINT flight_operation_history_flight_collected_uq UNIQUE (flight_uid, collected_at),
+    -- Optional source fields; NULL means not yet supplied/verified.
+    is_codeshare boolean,
+    master_flight_number text,
+    master_source_flight_id text,
+    departure_airport_name text,
+    arrival_airport_name text,
+    departure_city_name text,
+    arrival_city_name text,
+    codeshare_type text CHECK (codeshare_type IN ('Master', 'Slave')),
+    source_terminal_code text
 );
 -- UNIQUE index supports backward scans for per-flight as-of lookup.
 CREATE INDEX flight_operation_history_origin_collected_idx
@@ -175,10 +209,25 @@ CREATE TABLE flight_status_history (
         ('scheduled', 'boarding', 'delayed', 'cancelled', 'departed', 'arrived', 'diverted', 'unknown')),
     previous_gate text,
     new_gate text,
+    previous_source_status text,
+    new_source_status text,
+    previous_scheduled_at timestamptz,
+    new_scheduled_at timestamptz,
+    previous_estimated_at timestamptz,
+    new_estimated_at timestamptz,
+    previous_actual_at timestamptz,
+    new_actual_at timestamptz,
     collected_at timestamptz NOT NULL,
     collection_run_id bigint NOT NULL,
     FOREIGN KEY (collection_run_id, source) REFERENCES api_collection_runs (collection_run_id, source),
-    CHECK (previous_status IS DISTINCT FROM new_status OR previous_gate IS DISTINCT FROM new_gate)
+    CONSTRAINT flight_status_history_change_ck CHECK (
+        previous_status IS DISTINCT FROM new_status
+        OR previous_gate IS DISTINCT FROM new_gate
+        OR previous_source_status IS DISTINCT FROM new_source_status
+        OR previous_scheduled_at IS DISTINCT FROM new_scheduled_at
+        OR previous_estimated_at IS DISTINCT FROM new_estimated_at
+        OR previous_actual_at IS DISTINCT FROM new_actual_at
+    )
 );
 CREATE INDEX flight_status_history_flight_changed_idx
     ON flight_status_history (flight_uid, changed_at DESC);
@@ -198,7 +247,9 @@ CREATE TABLE weather_observations (
     collected_at timestamptz NOT NULL,
     collection_run_id bigint NOT NULL,
     FOREIGN KEY (collection_run_id, source) REFERENCES api_collection_runs (collection_run_id, source),
-    CONSTRAINT weather_observations_airport_observed_uq UNIQUE (airport_icao, observed_at, source)
+    CONSTRAINT weather_observations_airport_observed_uq UNIQUE (airport_icao, observed_at, source),
+    -- Optional source fields; NULL means not yet supplied/verified.
+    weather_phenomena text
 );
 CREATE INDEX weather_observations_run_idx ON weather_observations (collection_run_id);
 
@@ -207,7 +258,7 @@ CREATE TABLE takeoff_weather_forecasts (
     takeoff_weather_forecast_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     airport_icao text NOT NULL CHECK (airport_icao ~ '^[A-Z]{4}$'),
     forecast_type text NOT NULL CHECK (btrim(forecast_type) <> ''),
-    issued_at timestamptz NOT NULL,
+    issued_at timestamptz,
     valid_at timestamptz NOT NULL,
     wind_direction_degrees numeric(5,2) CHECK (wind_direction_degrees >= 0 AND wind_direction_degrees <= 360),
     wind_speed_mps numeric(8,2) CHECK (wind_speed_mps >= 0 AND wind_speed_mps < 'Infinity'::numeric),
@@ -218,20 +269,33 @@ CREATE TABLE takeoff_weather_forecasts (
     FOREIGN KEY (collection_run_id, source) REFERENCES api_collection_runs (collection_run_id, source),
     CONSTRAINT takeoff_weather_forecasts_business_uq UNIQUE (airport_icao, forecast_type, issued_at, valid_at, source)
 );
+-- Existing UNIQUE on issued_at is retained. PostgreSQL 14 allows multiple NULLs there;
+-- this partial unique index protects the unknown-issued_at case.
+CREATE UNIQUE INDEX takeoff_weather_forecasts_null_issue_uq
+    ON takeoff_weather_forecasts (airport_icao, forecast_type, valid_at, source)
+    WHERE issued_at IS NULL;
 CREATE INDEX takeoff_weather_forecasts_airport_valid_idx ON takeoff_weather_forecasts (airport_icao, valid_at);
 CREATE INDEX takeoff_weather_forecasts_run_idx ON takeoff_weather_forecasts (collection_run_id);
 
 CREATE TABLE airport_facilities (
     facility_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     facility_name text NOT NULL,
-    facility_type text NOT NULL,
-    terminal_id bigint NOT NULL REFERENCES terminals (terminal_id),
+    facility_type text,
+    terminal_id bigint REFERENCES terminals (terminal_id),
     zone_id bigint,
     floor_label text,
     location_description text,
     opening_hours_note text,
     CONSTRAINT airport_facilities_zone_terminal_fk FOREIGN KEY (zone_id, terminal_id)
-        REFERENCES airport_zones (zone_id, terminal_id)
+        REFERENCES airport_zones (zone_id, terminal_id),
+    -- Optional source fields; NULL means not yet supplied/verified.
+    products_description text,
+    arrival_departure_area text,
+    phone_number text,
+    source_api_identifier text,
+    source_facility_key text,
+    CONSTRAINT airport_facilities_zone_requires_terminal_ck
+        CHECK (zone_id IS NULL OR terminal_id IS NOT NULL)
 );
 CREATE INDEX airport_facilities_terminal_type_idx ON airport_facilities (terminal_id, facility_type);
 CREATE INDEX airport_facilities_zone_terminal_idx ON airport_facilities (zone_id, terminal_id);
@@ -308,10 +372,55 @@ CREATE TABLE daily_flight_summary (
 CREATE INDEX daily_flight_summary_terminal_date_idx ON daily_flight_summary (terminal_id, target_date);
 CREATE INDEX daily_flight_summary_run_idx ON daily_flight_summary (collection_run_id);
 
+-- Only reference codes; these are not fabricated flight/congestion observations.
+INSERT INTO terminals (terminal_code, terminal_name, source_terminal_code) VALUES
+    ('T1', '제1여객터미널', 'P01'),
+    ('T2', '제2여객터미널', 'P03'),
+    ('CONCOURSE', '탑승동', 'P02');
+
+COMMENT ON COLUMN public.airport_zones.gate_id
+    IS 'Raw gateId (DG3_E, DG3_W, DG1_A etc.); separate from parent hall.';
+COMMENT ON COLUMN public.airport_zones.hall_number
+    IS 'Number identifying a departure hall; NULL unless verified.';
+COMMENT ON COLUMN public.airport_zones.parent_zone_id
+    IS 'Optional parent zone within same terminal.';
+COMMENT ON COLUMN public.congestion_snapshots.waiting_passenger_count
+    IS 'API waitLength normalized people count.';
+COMMENT ON COLUMN public.congestion_snapshots.wait_time_raw
+    IS 'API waitTime in minutes, raw string including 60+.';
+COMMENT ON COLUMN public.congestion_snapshots.operating_time
+    IS 'Unparsed API operatingTime; meaning/format may need verification.';
+COMMENT ON COLUMN public.flight_operations.source_flight_id
+    IS 'API fid stored as source ID; flight_uid is internal PK.';
+COMMENT ON COLUMN public.flight_operations.master_flight_number
+    IS 'API masterFlightId, reported as master flight number.';
+COMMENT ON COLUMN public.flight_operations.codeshare_type
+    IS 'Raw codeshare value Master or Slave.';
+COMMENT ON COLUMN public.flight_operations.source_terminal_code
+    IS 'Raw API terminalId (P01/P02/P03).';
+COMMENT ON COLUMN public.takeoff_weather_forecasts.issued_at
+    IS 'NULL when issuance time is unverified; tmFc is valid_at, not issued_at.';
+COMMENT ON COLUMN public.takeoff_weather_forecasts.valid_at
+    IS 'API tmFc: UTC forecast target time, stored as TIMESTAMPTZ.';
+COMMENT ON COLUMN public.takeoff_weather_forecasts.wind_speed_mps
+    IS 'API ws (knots) converted to m/s by collector.';
+COMMENT ON COLUMN public.takeoff_weather_forecasts.pressure_hpa
+    IS 'API qnh (0.01 inHg) converted to hPa by collector.';
+COMMENT ON COLUMN public.airport_facilities.source_facility_key
+    IS 'Stable deduplication rule not yet approved; do not treat as unique.';
 COMMENT ON COLUMN public.weather_observations.visibility_km
     IS 'Visibility in kilometers (km). Collection pipeline converts source units to km.';
 
 -- Persist timezone for future connections to this database.
 ALTER DATABASE airport_dashboard SET timezone TO 'Asia/Seoul';
+
+COMMENT ON COLUMN public.flight_operations.is_codeshare IS 'TRUE: codeshare, FALSE: confirmed master flight, NULL: not yet verified.';
+COMMENT ON COLUMN public.flight_operations.master_source_flight_id IS 'Master operation UNIQ code from the same source API. Mapping requires API verification.';
+COMMENT ON COLUMN public.flight_operation_history.is_codeshare IS 'Codeshare classification at collection time. NULL means not yet verified.';
+COMMENT ON COLUMN public.flight_operation_history.master_source_flight_id IS 'Master operation UNIQ code at collection time, from the same source API.';
+COMMENT ON COLUMN public.airport_facilities.products_description IS 'Source description of products/services. Structured classification is not yet defined.';
+COMMENT ON COLUMN public.airport_facilities.arrival_departure_area IS 'Source label for arrival/departure area. Preserve original text until mapping is agreed.';
+COMMENT ON COLUMN public.airport_facilities.phone_number IS 'Phone number as text, preserving leading zeros, country code and separators.';
+COMMENT ON COLUMN public.weather_observations.weather_phenomena IS 'Source weather phenomenon code/text. Preserve original representation until mapping is agreed.';
 
 COMMIT;
