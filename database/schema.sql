@@ -1,5 +1,12 @@
--- Consolidated PostgreSQL 14+ schema: initial + team naming/units + dashboard fields.
--- NEW DATABASE ONLY. Do not run against the existing shared RDS database.
+-- ICN My Station | PostgreSQL 14+ schema aligned to API and RDS design (2026-11-03).
+-- Based on the user-provided consolidated schema and API alignment migration 002.
+-- Confirmed RDS column types/nullability (2026-11-03):
+-- airport_zones: hall_number integer NULL, gate_id text NULL, parent_zone_id bigint NULL
+-- airport_facilities: facility_type text NULL, terminal_id bigint NULL,
+--                     source_facility_key text NULL.
+-- This is a reference bootstrap, not an exhaustive RDS pg_dump comparison.
+-- NEW EMPTY DATABASE ONLY. Do not execute this file on the existing shared RDS.
+-- For an existing database, create and review a separate ALTER migration.
 -- Use this file alone, NOT together with migrations/001_initial_schema.sql.
 -- Connect to an empty airport_dashboard database as its owner.
 -- Historical README/ERD may still show data_origin/visibility_m; this file uses final names.
@@ -12,8 +19,10 @@ SET TIME ZONE 'Asia/Seoul';
 
 CREATE TABLE terminals (
     terminal_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    terminal_code text NOT NULL UNIQUE CHECK (terminal_code IN ('T1', 'T2')),
-    terminal_name text NOT NULL CHECK (btrim(terminal_name) <> '')
+    terminal_code text NOT NULL UNIQUE CHECK (terminal_code IN ('T1', 'T2', 'CONCOURSE')),
+    terminal_name text NOT NULL CHECK (btrim(terminal_name) <> ''),
+    -- Public data API terminal codes: P01=T1, P02=CONCOURSE, P03=T2.
+    source_terminal_code text UNIQUE CHECK (source_terminal_code IN ('P01', 'P02', 'P03'))
 );
 
 CREATE TABLE airport_zones (
@@ -24,12 +33,27 @@ CREATE TABLE airport_zones (
     hall_id text CHECK (hall_id IS NULL OR btrim(hall_id) <> ''),
     zone_name text NOT NULL,
     zone_type text NOT NULL,
+    -- Departure hall number and raw congestion API gate identifier.
+    hall_number integer CHECK (hall_number > 0),
+    gate_id text CHECK (gate_id IS NULL OR btrim(gate_id) <> ''),
+    -- For a detailed gate zone, points to its parent departure hall.
+    parent_zone_id bigint,
     CHECK (zone_type <> 'departure_hall' OR hall_id IS NOT NULL),
+    -- Detailed gates must have a parent hall; consistent with migration 002.
+    CONSTRAINT airport_zones_gate_parent_ck CHECK (gate_id IS NULL OR parent_zone_id IS NOT NULL),
     CONSTRAINT airport_zones_terminal_hall_uq UNIQUE (terminal_id, hall_id),
     CONSTRAINT airport_zones_terminal_code_uq UNIQUE (terminal_id, zone_code),
     -- Composite target used to enforce facility/zone terminal consistency.
-    CONSTRAINT airport_zones_id_terminal_uq UNIQUE (zone_id, terminal_id)
+    CONSTRAINT airport_zones_id_terminal_uq UNIQUE (zone_id, terminal_id),
+    -- A gate zone can only point to a parent zone in the same terminal.
+    CONSTRAINT airport_zones_parent_terminal_fk
+        FOREIGN KEY (parent_zone_id, terminal_id)
+        REFERENCES airport_zones (zone_id, terminal_id)
 );
+
+CREATE UNIQUE INDEX airport_zones_terminal_gate_id_uq
+    ON airport_zones (terminal_id, gate_id)
+    WHERE gate_id IS NOT NULL;
 
 CREATE TABLE api_collection_runs (
     source text NOT NULL CHECK (source IN ('api', 'yolo', 'demo')),
@@ -74,6 +98,9 @@ CREATE TABLE congestion_snapshots (
     measured_at timestamptz NOT NULL CHECK (EXTRACT(SECOND FROM measured_at) = 0),
     source_measured_at timestamptz,
     waiting_passenger_count bigint NOT NULL CHECK (waiting_passenger_count >= 0),
+    -- Raw API waitTime (including values such as 60+) and operatingTime.
+    wait_time_raw text,
+    operating_time text,
     -- YOLO counts are estimates; provenance must accompany the value.
     estimation_basis jsonb CHECK (jsonb_typeof(estimation_basis) = 'object'),
     CHECK (source <> 'yolo' OR estimation_basis IS NOT NULL),
@@ -125,7 +152,9 @@ CREATE TABLE flight_operations (
     departure_airport_name text,
     arrival_airport_name text,
     departure_city_name text,
-    arrival_city_name text
+    arrival_city_name text,
+    codeshare_type text CHECK (codeshare_type IN ('Master', 'Slave')),
+    source_terminal_code text
 );
 CREATE INDEX flight_operations_terminal_schedule_idx ON flight_operations (terminal_id, scheduled_at);
 CREATE INDEX flight_operations_number_schedule_idx ON flight_operations (flight_number, scheduled_at);
@@ -167,7 +196,9 @@ CREATE TABLE flight_operation_history (
     departure_airport_name text,
     arrival_airport_name text,
     departure_city_name text,
-    arrival_city_name text
+    arrival_city_name text,
+    codeshare_type text CHECK (codeshare_type IN ('Master', 'Slave')),
+    source_terminal_code text
 );
 -- UNIQUE index supports backward scans for per-flight as-of lookup.
 CREATE INDEX flight_operation_history_origin_collected_idx
@@ -191,10 +222,25 @@ CREATE TABLE flight_status_history (
         ('scheduled', 'boarding', 'delayed', 'cancelled', 'departed', 'arrived', 'diverted', 'unknown')),
     previous_gate text,
     new_gate text,
+    previous_source_status text,
+    new_source_status text,
+    previous_scheduled_at timestamptz,
+    new_scheduled_at timestamptz,
+    previous_estimated_at timestamptz,
+    new_estimated_at timestamptz,
+    previous_actual_at timestamptz,
+    new_actual_at timestamptz,
     collected_at timestamptz NOT NULL,
     collection_run_id bigint NOT NULL,
     FOREIGN KEY (collection_run_id, source) REFERENCES api_collection_runs (collection_run_id, source),
-    CHECK (previous_status IS DISTINCT FROM new_status OR previous_gate IS DISTINCT FROM new_gate)
+    CONSTRAINT flight_status_history_change_ck CHECK (
+        previous_status IS DISTINCT FROM new_status
+        OR previous_gate IS DISTINCT FROM new_gate
+        OR previous_source_status IS DISTINCT FROM new_source_status
+        OR previous_scheduled_at IS DISTINCT FROM new_scheduled_at
+        OR previous_estimated_at IS DISTINCT FROM new_estimated_at
+        OR previous_actual_at IS DISTINCT FROM new_actual_at
+    )
 );
 CREATE INDEX flight_status_history_flight_changed_idx
     ON flight_status_history (flight_uid, changed_at DESC);
@@ -225,7 +271,8 @@ CREATE TABLE takeoff_weather_forecasts (
     takeoff_weather_forecast_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     airport_icao text NOT NULL CHECK (airport_icao ~ '^[A-Z]{4}$'),
     forecast_type text NOT NULL CHECK (btrim(forecast_type) <> ''),
-    issued_at timestamptz NOT NULL,
+    -- Source tmFc is valid_at; NULL when issuance time is unverified.
+    issued_at timestamptz,
     valid_at timestamptz NOT NULL,
     wind_direction_degrees numeric(5,2) CHECK (wind_direction_degrees >= 0 AND wind_direction_degrees <= 360),
     wind_speed_mps numeric(8,2) CHECK (wind_speed_mps >= 0 AND wind_speed_mps < 'Infinity'::numeric),
@@ -236,14 +283,19 @@ CREATE TABLE takeoff_weather_forecasts (
     FOREIGN KEY (collection_run_id, source) REFERENCES api_collection_runs (collection_run_id, source),
     CONSTRAINT takeoff_weather_forecasts_business_uq UNIQUE (airport_icao, forecast_type, issued_at, valid_at, source)
 );
+-- PostgreSQL 14 UNIQUE permits multiple NULLs; prevent duplicates in unknown-issued case.
+CREATE UNIQUE INDEX takeoff_weather_forecasts_null_issue_uq
+    ON takeoff_weather_forecasts (airport_icao, forecast_type, valid_at, source)
+    WHERE issued_at IS NULL;
 CREATE INDEX takeoff_weather_forecasts_airport_valid_idx ON takeoff_weather_forecasts (airport_icao, valid_at);
 CREATE INDEX takeoff_weather_forecasts_run_idx ON takeoff_weather_forecasts (collection_run_id);
 
 CREATE TABLE airport_facilities (
     facility_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     facility_name text NOT NULL,
-    facility_type text NOT NULL,
-    terminal_id bigint NOT NULL REFERENCES terminals (terminal_id),
+    -- These source attributes can be unknown until API classification is verified.
+    facility_type text,
+    terminal_id bigint REFERENCES terminals (terminal_id),
     zone_id bigint,
     floor_label text,
     location_description text,
@@ -253,10 +305,19 @@ CREATE TABLE airport_facilities (
     -- Optional source fields; NULL means not yet supplied/verified.
     products_description text,
     arrival_departure_area text,
-    phone_number text
+    phone_number text,
+    source_api_identifier text,
+    source_facility_key text,
+    -- If a zone is known, its terminal must be known too.
+    CONSTRAINT airport_facilities_zone_requires_terminal_ck
+        CHECK (zone_id IS NULL OR terminal_id IS NOT NULL)
 );
 CREATE INDEX airport_facilities_terminal_type_idx ON airport_facilities (terminal_id, facility_type);
 CREATE INDEX airport_facilities_zone_terminal_idx ON airport_facilities (zone_id, terminal_id);
+-- A regular UNIQUE index supports ON CONFLICT (source_facility_key).
+-- PostgreSQL 14 allows multiple NULL values under a regular UNIQUE index.
+CREATE UNIQUE INDEX airport_facilities_source_facility_key_uq
+    ON airport_facilities (source_facility_key);
 
 -- Weekly recurring local wall-clock intervals, not timestamps of actual events.
 -- ISO weekday: Monday=1 ... Sunday=7; local timezone Asia/Seoul.
@@ -330,6 +391,40 @@ CREATE TABLE daily_flight_summary (
 CREATE INDEX daily_flight_summary_terminal_date_idx ON daily_flight_summary (terminal_id, target_date);
 CREATE INDEX daily_flight_summary_run_idx ON daily_flight_summary (collection_run_id);
 
+-- Reference data only: not fabricated passenger or flight observations.
+INSERT INTO terminals (terminal_code, terminal_name, source_terminal_code) VALUES
+    ('T1', '제1여객터미널', 'P01'),
+    ('T2', '제2여객터미널', 'P03'),
+    ('CONCOURSE', '탑승동', 'P02');
+
+COMMENT ON COLUMN public.airport_zones.gate_id
+    IS 'Raw congestion API gateId (e.g. DG3_E, DG1_A).';
+COMMENT ON COLUMN public.airport_zones.hall_number
+    IS 'Departure hall number; NULL when unverified.';
+COMMENT ON COLUMN public.airport_zones.parent_zone_id
+    IS 'Parent zone (departure hall) within the same terminal.';
+COMMENT ON COLUMN public.congestion_snapshots.waiting_passenger_count
+    IS 'API waitLength normalized to the people count.';
+COMMENT ON COLUMN public.congestion_snapshots.wait_time_raw
+    IS 'Raw API waitTime in minutes; can contain values such as 60+.';
+COMMENT ON COLUMN public.congestion_snapshots.operating_time
+    IS 'Raw API operatingTime; keep as text until verified.';
+COMMENT ON COLUMN public.flight_operations.source_flight_id
+    IS 'Source flight fid; flight_uid is the internal PK.';
+COMMENT ON COLUMN public.flight_operations.codeshare_type
+    IS 'Raw codeshare type: Master or Slave.';
+COMMENT ON COLUMN public.flight_operations.source_terminal_code
+    IS 'Raw terminalId: P01/P02/P03.';
+COMMENT ON COLUMN public.takeoff_weather_forecasts.issued_at
+    IS 'NULL when issuance time is unverified; tmFc corresponds to valid_at.';
+COMMENT ON COLUMN public.takeoff_weather_forecasts.valid_at
+    IS 'API tmFc: UTC forecast target time as TIMESTAMPTZ.';
+COMMENT ON COLUMN public.takeoff_weather_forecasts.wind_speed_mps
+    IS 'API ws in knots, converted to m/s by collection pipeline.';
+COMMENT ON COLUMN public.takeoff_weather_forecasts.pressure_hpa
+    IS 'API qnh in 0.01 inHg, converted to hPa by collector.';
+COMMENT ON COLUMN public.airport_facilities.source_facility_key
+    IS 'Source-specific stable deduplication key. Non-NULL values must be unique.';
 COMMENT ON COLUMN public.weather_observations.visibility_km
     IS 'Visibility in kilometers (km). Collection pipeline converts source units to km.';
 
