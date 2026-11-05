@@ -1,9 +1,9 @@
 
 .icn-flights-page {
   width: 100%;
-  max-width: 1500px;
+  max-width: none;
   margin: 0 auto;
-  padding: 26px 22px 45px;
+  padding: 12px 0 45px;
   color: #172d50;
   font-family: Inter, 'Pretendard', 'Noto Sans KR',
     system-ui, sans-serif;
@@ -78,6 +78,7 @@
 }
 
 .icn-flight-terminal-grid {
+  width: 100%;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px;
@@ -141,18 +142,21 @@
 }
 
 .icn-flight-timeline {
+  --gate-label-offset: 62px;
   min-height: 205px;
 }
 
 .icn-flight-ticks {
   display: flex;
   justify-content: space-between;
-  margin: 0 0 19px 62px;
+  margin: 0 0 19px var(--gate-label-offset);
   color: #93a2b2;
   font-size: 10px;
 }
 
 .icn-flight-gate-list {
+  position: relative;
+  --gate-label-offset: 62px;
   display: flex;
   flex-direction: column;
   gap: 15px;
@@ -186,23 +190,25 @@
   );
 }
 
-.icn-flight-nowline {
+/* 현재 시각은 게이트별 반복이 아닌 하나의 세로 기준선으로 표시 */
+.icn-flight-current-time-line {
   position: absolute;
-  top: -4px;
-  bottom: -4px;
-  border-left: 2px dashed #f2a75b;
-  z-index: 2;
+  top: -7px;
+  bottom: -7px;
+  width: 0;
+  border-left: 2px dashed #2d7bdb;
+  z-index: 5;
   pointer-events: none;
 }
-
-.icn-flight-nowline::before {
-  content: 'NOW';
+.icn-flight-current-time-line::before {
+  content: '';
   position: absolute;
-  top: -15px;
-  left: -13px;
-  color: #d58b39;
-  font-size: 9px;
-  font-weight: 800;
+  top: -3px;
+  left: -5px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #2d7bdb;
 }
 
 .icn-flight-bar {
@@ -251,6 +257,7 @@
 }
 
 .icn-flight-table-card {
+  width: 100%;
   margin-top: 22px;
 }
 
@@ -490,24 +497,44 @@
   .icn-flight-gate-name {
     width: 43px;
   }
+  .icn-flight-timeline,
+  .icn-flight-gate-list {
+    --gate-label-offset: 55px;
+  }
 }
 
-/* Departure pagination: horizontal page list + draggable range */
-.icn-flight-pagination { margin: 18px 0 8px; padding: 18px 20px; border: 1px solid #e4ebf5; border-radius: 16px; background: linear-gradient(180deg,#fff 0%,#f8fbff 100%); }
-.icn-flight-pagination-top { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:14px; font-size:13px; color:#64748b; }
-.icn-flight-pagination-top strong { color:#174f94; font-weight:750; }
-.icn-flight-pagination-current { padding:5px 11px; background:#eaf3ff; color:#3b628f; border-radius:999px; white-space:nowrap; }
-.icn-flight-pagination-controls { display:flex; align-items:center; gap:10px; }
-.icn-flight-page-numbers { display:flex; gap:7px; flex:1; min-width:0; overflow-x:auto; padding:4px 2px 9px; scrollbar-width:thin; scrollbar-color:#bdd0e9 transparent; }
-.icn-flight-page-numbers::-webkit-scrollbar { height:5px; }
-.icn-flight-page-numbers::-webkit-scrollbar-thumb { background:#bdd0e9; border-radius:999px; }
-.icn-flight-page-number,.icn-flight-page-arrow { display:grid; place-items:center; flex-shrink:0; height:38px; min-width:38px; padding:0 10px; border:1px solid #e2eaf4; border-radius:10px; background:#fff; color:#44617f; font-size:13px; font-weight:650; cursor:pointer; transition:background .15s,border-color .15s,transform .15s; }
-.icn-flight-page-number:hover,.icn-flight-page-arrow:not(:disabled):hover { background:#edf5ff; border-color:#a8c8ed; transform:translateY(-1px); }
-.icn-flight-page-number.is-active { background:#176fc9; border-color:#176fc9; color:#fff; box-shadow:0 4px 10px #176fc92b; }
-.icn-flight-page-arrow { font-size:25px; font-weight:400; }
-.icn-flight-page-arrow:disabled { opacity:.35; cursor:not-allowed; }
-.icn-flight-page-slider-wrap { display:flex; align-items:center; gap:13px; margin-top:11px; font-size:11px; color:#8aa0ba; }
-.icn-flight-page-slider { flex:1; min-width:0; height:6px; appearance:none; border-radius:999px; background:linear-gradient(to right,#176fc9 var(--page-progress),#dfe9f5 var(--page-progress)); cursor:pointer; }
-.icn-flight-page-slider::-webkit-slider-thumb { appearance:none; width:18px; height:18px; border:3px solid #fff; border-radius:50%; background:#176fc9; box-shadow:0 1px 7px #17599e55; }
-.icn-flight-page-slider::-moz-range-thumb { width:13px; height:13px; border:3px solid #fff; border-radius:50%; background:#176fc9; box-shadow:0 1px 7px #17599e55; }
-@media(max-width:600px) { .icn-flight-pagination { padding:14px 12px; } .icn-flight-page-numbers { gap:5px; } .icn-flight-page-number,.icn-flight-page-arrow { min-width:34px; height:34px; padding:0 8px; } }
+/* 출발 항공편: 가운데 정렬된 5개 페이지 번호 */
+.icn-flight-pagination { margin:18px 0 8px; padding:20px; border:1px solid #e0e9f5; border-radius:16px; background:#fff; }
+.icn-flight-pagination-top { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px; font-size:13px; color:#64748b; }
+.icn-flight-pagination-top strong { color:#1558a6; font-weight:700; }
+.icn-flight-pagination-current { padding:9px 14px; border-radius:24px; background:#edf4ff; color:#1558a6; white-space:nowrap; }
+.icn-flight-pagination-controls { display:flex; justify-content:center; align-items:center; gap:14px; width:100%; }
+.icn-flight-page-numbers { display:flex; align-items:center; justify-content:center; gap:8px; }
+.icn-flight-page-number,.icn-flight-page-arrow { display:grid; place-items:center; flex-shrink:0; width:40px; height:40px; padding:0; border:1px solid transparent; border-radius:9px; background:transparent; color:#334e75; font-size:14px; font-weight:500; cursor:pointer; transition:background .2s,color .2s; }
+.icn-flight-page-number:hover,.icn-flight-page-arrow:hover:not(:disabled) { background:#edf4ff; color:#1558a6; }
+.icn-flight-page-number.is-active { background:#104783; border-color:#104783; color:white; font-weight:700; box-shadow:0 3px 8px rgba(16,71,131,.18); }
+.icn-flight-page-number.is-active:hover { background:#1558a6; }
+.icn-flight-page-arrow { font-size:26px; }
+.icn-flight-page-arrow:disabled { opacity:.3; cursor:not-allowed; }
+.icn-flight-page-ellipsis { display:grid; place-items:center; width:24px; height:40px; color:#64748b; font-size:18px; }
+@media(max-width:640px) {
+  .icn-flight-pagination { padding:16px 10px; }
+  .icn-flight-pagination-controls { gap:5px; }
+  .icn-flight-page-numbers { gap:2px; }
+  .icn-flight-page-number,.icn-flight-page-arrow { width:32px; height:36px; }
+  .icn-flight-page-ellipsis { width:14px; }
+}
+
+.icn-flight-track { overflow: hidden; }
+.icn-flight-bar { top:50%; transform:translate(-50%,-50%); width:96px; max-width:none; height:25px; padding:0 5px; gap:4px; z-index:3; box-sizing:border-box; }
+.icn-flight-bar.normal { background:#74ebac; border:1px solid #36c98a; color:#065f46; }
+.icn-flight-bar.delay { background:#ff9995; border:1px solid #f47773; color:#8f2828; }
+.icn-flight-bar-number { overflow:hidden; text-overflow:ellipsis; }
+.icn-flight-bar-delay { flex-shrink:0; font-size:9px; font-weight:800; }
+.icn-flight-original-time { position:absolute; top:50%; transform:translate(-50%,-50%); width:80px; height:27px; border:1.5px dashed #8fa3c3; border-radius:5px; background:rgba(148,163,184,.05); box-sizing:border-box; z-index:1; pointer-events:none; }
+.icn-flight-timeline-legend { display:flex; align-items:center; gap:14px; margin-top:12px; color:#64748b; font-size:11px; }
+.icn-flight-timeline-legend span { display:inline-flex; align-items:center; gap:5px; }
+.icn-flight-legend-dot { width:9px; height:9px; border-radius:3px; display:inline-block; }
+.icn-flight-legend-dot.normal { background:#74ebac; }
+.icn-flight-legend-dot.delay { background:#ff9995; }
+.icn-flight-legend-dot.original { background:transparent; border:1px dashed #8fa3c3; }
