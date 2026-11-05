@@ -1,63 +1,70 @@
 
-/* =====================================
-   ICN My Station - Facilities TOP 3
-===================================== */
+/* ================================
+   ICN My Station - Facilities
+================================ */
+
+.facilities-widget,
+.facilities-widget * {
+  box-sizing: border-box;
+}
 
 .facilities-widget {
   display: flex;
   flex-direction: column;
-
   width: 100%;
   height: 100%;
   min-width: 0;
   min-height: 0;
-
-  box-sizing: border-box;
+  gap: 7px;
   overflow: hidden;
 }
 
+/* 시설 3개 목록 */
 .facilities-widget__list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: repeat(3, 36px);
   gap: 5px;
-
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: hidden;
+  width: 100%;
+  min-width: 0;
+  flex: 0 0 auto;
 }
 
+/* 개별 시설 카드 */
 .facilities-widget__item {
-  display: flex;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
 
-  flex: 1 1 0;
+  width: 100%;
   min-width: 0;
   min-height: 0;
-
-  padding: 5px 7px;
-  box-sizing: border-box;
+  height: 36px;
+  padding: 4px 7px;
 
   border: 1px solid #dce7f5;
   border-radius: 8px;
-  background: #fff;
+  background: #ffffff;
+  overflow: hidden;
 }
 
+/* 순위 */
 .facilities-widget__rank {
   display: flex;
   align-items: center;
   justify-content: center;
 
-  flex: 0 0 24px;
   width: 24px;
   height: 24px;
 
-  border-radius: 7px;
-  background: #e8f1ff;
-  color: #1859af;
+  border-radius: 6px;
+  background: #e9f1ff;
+  color: #1755ab;
 
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
+  flex-shrink: 0;
 }
 
 .facilities-widget__item:first-child
@@ -66,62 +73,81 @@
   color: #a56a00;
 }
 
+/* 시설 정보 */
 .facilities-widget__info {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  justify-content: center;
+  gap: 3px;
 
-  flex: 1 1 auto;
   min-width: 0;
+  width: 100%;
+  overflow: hidden;
 }
 
 .facilities-widget__name {
+  display: block;
+  min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 
-  color: #173456;
   font-size: 11px;
   font-weight: 800;
+  color: #173456;
+  line-height: 1.2;
+
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .facilities-widget__meta {
   display: flex;
+  align-items: center;
   gap: 5px;
-  min-width: 0;
 
-  color: #64748b;
+  min-width: 0;
+  overflow: hidden;
+
   font-size: 9px;
+  line-height: 1.1;
+  color: #718096;
+  white-space: nowrap;
 }
 
 .facilities-widget__meta span {
+  display: block;
+  flex: 0 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+/* 오른쪽 혼잡 / 운영 정보 */
 .facilities-widget__status {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 4px;
+  justify-content: center;
+  gap: 3px;
 
+  width: auto;
+  max-width: 88px;
+  min-width: 0;
   flex-shrink: 0;
-}
-
-.facilities-widget__open {
-  color: #059669;
-  font-size: 9px;
-  font-weight: 700;
+  white-space: nowrap;
 }
 
 .facilities-widget__level {
-  padding: 3px 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 2px 6px;
   border-radius: 5px;
 
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 800;
-  white-space: nowrap;
+  line-height: 1.1;
 }
 
 .facilities-widget__level--low {
@@ -139,17 +165,55 @@
   background: #fee2e2;
 }
 
+.facilities-widget__open {
+  color: #059669;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.facilities-widget__open--unknown {
+  color: #94a3b8;
+}
+
+/* 하단 안내 */
+.facilities-widget__notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  align-content: center;
+  column-gap: 5px;
+  row-gap: 2px;
+
+  flex: 0 0 auto;
+  min-width: 0;
+
+  padding: 0 2px;
+  color: #64748b;
+
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+.facilities-widget__notice strong {
+  color: #2563a6;
+  font-weight: 800;
+}
+
+.facilities-widget__notice span {
+  min-width: 0;
+}
+
+/* 로딩 / 오류 / 빈 목록 */
 .facilities-message {
   display: flex;
   align-items: center;
   justify-content: center;
 
   width: 100%;
-  height: 100%;
   min-height: 80px;
-
+  height: 100%;
   padding: 12px;
-  box-sizing: border-box;
 
   text-align: center;
   color: #64748b;
@@ -160,26 +224,27 @@
   color: #dc2626;
 }
 
-/* SectionBox 안에서 높이 유지 */
+/* 메인 대시보드 SectionBox 내부 */
 .icn-facilities .icn-section__body {
   min-height: 0;
   overflow: hidden;
 }
 
-@media (max-height: 750px) {
-  .facilities-widget__list {
-    gap: 3px;
-  }
-
-  .facilities-widget__item {
-    padding: 3px 5px;
+/* 좁은 화면 */
+@media (max-width: 600px) {
+  .facilities-widget {
     gap: 5px;
   }
 
-  .facilities-widget__rank {
-    flex-basis: 21px;
-    width: 21px;
-    height: 21px;
+  .facilities-widget__list {
+    grid-template-rows: repeat(3, 34px);
+    gap: 4px;
+  }
+
+  .facilities-widget__item {
+    height: 34px;
+    gap: 5px;
+    padding: 3px 5px;
   }
 
   .facilities-widget__name {
@@ -187,6 +252,10 @@
   }
 
   .facilities-widget__meta {
+    font-size: 8px;
+  }
+
+  .facilities-widget__notice {
     font-size: 8px;
   }
 }

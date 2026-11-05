@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from "react";
+import { useLiveUpdates } from "../../../hooks/useLiveUpdates";
 import { getWeather } from "../../../api/client";
 import "./WeatherConditions.css";
 
@@ -116,22 +116,6 @@ function directionName(degrees: number | null): string {
     Math.round((((degrees % 360) + 360) % 360) / 45) % 8;
 
   return names[index];
-}
-
-function formatTime(value: string | null): string {
-  if (!value) return "관측 시각 확인 중";
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-
-  return new Intl.DateTimeFormat("ko-KR", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    timeZone: "Asia/Seoul",
-  }).format(date);
 }
 
 function getRisk(value: string | null) {
@@ -341,48 +325,14 @@ function Metric({
 }
 
 export default function WeatherConditions() {
-  const [weather, setWeather] =
-    useState<WeatherData | null>(null);
+  const { data: weather, loading, error } = useLiveUpdates<WeatherData>({
+    topic: "weather",
+    scope: null,
+    fetcher: async (signal) => normalize(await getWeather(signal)),
+    intervalMs: 60_000,
+  });
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] =
-    useState<string | null>(null);
-
-  useEffect(() => {
-    const controller = new AbortController();
-
-    async function load() {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const response: unknown =
-          await getWeather(controller.signal);
-
-        if (controller.signal.aborted) return;
-
-        setWeather(normalize(response));
-      } catch (err) {
-        if (controller.signal.aborted) return;
-
-        setError(
-          err instanceof Error
-            ? err.message
-            : "기상 정보를 불러오지 못했습니다."
-        );
-      } finally {
-        if (!controller.signal.aborted) {
-          setLoading(false);
-        }
-      }
-    }
-
-    void load();
-
-    return () => controller.abort();
-  }, []);
-
-  if (loading) {
+  if (loading && !weather) {
     return (
       <div className="weather-message">
         기상 정보 불러오는 중...
@@ -390,7 +340,7 @@ export default function WeatherConditions() {
     );
   }
 
-  if (error) {
+  if (error && !weather) {
     return (
       <div
         className="weather-message weather-error"

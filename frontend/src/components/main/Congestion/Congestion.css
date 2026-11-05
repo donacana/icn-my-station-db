@@ -477,3 +477,28 @@
     padding: 7px;
   }
 }
+
+/* ===== 아이소메트릭 V2: 남는 높이는 지도에 배분 ===== */
+.congestion-panel {
+  height: 70%;
+  min-height: 590px;
+  gap: 14px;
+}
+.congestion-panel__map {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 390px;
+  max-height: none;
+}
+.congestion-panel__bottom {
+  flex: 0 0 auto;
+  margin-top: auto;
+}
+@media (max-width: 1100px) {
+  .congestion-panel { min-height: 540px; }
+  .congestion-panel__map { height: auto; min-height: 310px; max-height: none; }
+}
+@media (max-width: 650px) {
+  .congestion-panel { min-height: 490px; }
+  .congestion-panel__map { height: auto; min-height: 280px; max-height: none; }
+}

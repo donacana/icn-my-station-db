@@ -69,7 +69,7 @@ function normalizeHall(rawValue: unknown, index: number): Hall {
     id,
     name,
     currentCount: numeric(first(raw, [
-      "currentCount", "currentPassengers",
+      "currentCount", "waitingCount", "currentPassengers",
       "passengerCount", "peopleCount",
       "count", "current",
     ])),
