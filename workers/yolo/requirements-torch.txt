@@ -1,0 +1,6 @@
+# Optional .venv-model only. Install Torch from official cu118/CPU index first.
+-r requirements.txt
+torch==2.7.1
+torchvision==0.22.1
+ultralytics==8.3.228
+onnx==1.19.1
