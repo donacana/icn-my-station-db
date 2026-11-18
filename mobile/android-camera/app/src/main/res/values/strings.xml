@@ -1,0 +1,40 @@
+<resources>
+    <string name="app_name">ICN Camera Sender</string>
+
+    <!-- Connection Status -->
+    <string name="status_disconnected">연결 안 됨</string>
+    <string name="status_connecting">서버 연결 중…</string>
+    <string name="status_connected">서버 연결됨 (대기)</string>
+    <string name="status_streaming">영상 송출 중</string>
+    <string name="status_reconnecting">재연결 시도 중…</string>
+    <string name="status_error">연결 오류</string>
+
+    <!-- Controls -->
+    <string name="action_start_stream">송출 시작</string>
+    <string name="action_stop_stream">송출 중지</string>
+    <string name="action_save_settings">설정 저장 및 적용</string>
+    <string name="action_toggle_settings">설정</string>
+    <string name="action_grant_permission">권한 허용</string>
+    <string name="action_open_app_settings">앱 설정으로 이동</string>
+
+    <!-- Settings Labels -->
+    <string name="label_server_url">WebSocket 서버 주소</string>
+    <string name="hint_server_url">ws://&lt;SERVER_HOST&gt;/ws/yolo/camera</string>
+    <string name="label_camera_select">송출 카메라 선택</string>
+    <string name="camera_1_title">카메라 1: T1 3번 출국장 (ID: 1)</string>
+    <string name="camera_2_title">카메라 2: T1 스카이허브 라운지(서편) (ID: 2)</string>
+    <string name="camera_custom_title">직접 입력 (사용자 지정 ID)</string>
+    <string name="label_camera_id">카메라 ID (정수)</string>
+    <string name="hint_camera_id">1</string>
+    <string name="label_camera_token">인증 토큰 (YOLO_CAMERA_TOKEN)</string>
+    <string name="hint_camera_token">token</string>
+
+    <!-- Stats & Specs -->
+    <string name="label_specs">640×360 | JPEG 65% | v0.4</string>
+    <string name="label_frame_stats">Frame: %1$d | 전송: %2$d | 폐기: %3$d</string>
+    <string name="label_live_fps">FPS: %1$.1f</string>
+
+    <!-- Permission Guidance -->
+    <string name="permission_camera_rationale">카메라 영상을 실시간으로 캡처하고 미리보기를 제공하려면 카메라 권한이 필요합니다.</string>
+    <string name="permission_camera_denied">카메라 권한이 거부되었습니다. 설정에서 권한을 허용해주세요.</string>
+</resources>

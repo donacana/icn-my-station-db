@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!--
+      [DEMO/개발 환경 설정]
+      Android 9 (API 28) 이상에서는 기본적으로 평문(Cleartext HTTP/WS) 통신이 차단됩니다.
+      현재 EC2 FastAPI 테스트 환경(ws://)에서 WebSocket 연결을 허용하기 위해
+      cleartextTrafficPermitted="true"를 적용합니다.
+
+      [향후 wss:// 운영 환경 전환 시 가이드]
+      1. AWS ALB / Nginx 등을 통해 SSL/TLS 인증서를 적용하고 도메인을 연결합니다 (예: wss://camera.yourdomain.com).
+      2. 아래 base-config의 cleartextTrafficPermitted를 "false"로 변경하거나,
+         특정 개발용 도메인/IP에 대해서만 domain-config를 분리 적용합니다.
+    -->
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
