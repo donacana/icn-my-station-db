@@ -1,0 +1,4 @@
+# Optional local relay and its HTTP/WebSocket integration tests.
+fastapi==0.121.3
+uvicorn==0.38.0
+httpx==0.28.1
