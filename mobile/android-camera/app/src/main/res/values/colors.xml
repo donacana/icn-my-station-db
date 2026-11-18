@@ -1,0 +1,28 @@
+<resources>
+    <!-- Brand / Theme -->
+    <color name="primary">#1E88E5</color>
+    <color name="primary_dark">#1565C0</color>
+    <color name="accent">#00E676</color>
+    <color name="background_dark">#121212</color>
+    <color name="surface_dark">#1E1E1E</color>
+    <color name="surface_card">#2A2A2A</color>
+
+    <!-- Status Colors -->
+    <color name="status_disconnected">#757575</color>
+    <color name="status_connecting">#FFA000</color>
+    <color name="status_connected">#43A047</color>
+    <color name="status_streaming">#00E5FF</color>
+    <color name="status_reconnecting">#FB8C00</color>
+    <color name="status_error">#E53935</color>
+
+    <!-- Overlay & Buttons -->
+    <color name="overlay_background">#CC000000</color>
+    <color name="overlay_panel">#E61E1E1E</color>
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#B0BEC5</color>
+    <color name="btn_start">#2E7D32</color>
+    <color name="btn_start_pressed">#1B5E20</color>
+    <color name="btn_stop">#C62828</color>
+    <color name="btn_stop_pressed">#8E0000</color>
+    <color name="divider">#37474F</color>
+</resources>

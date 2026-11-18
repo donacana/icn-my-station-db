@@ -1,0 +1,45 @@
+# Android / Gradle build outputs
+*.apk
+*.ap_
+*.aab
+*.dex
+*.class
+bin/
+gen/
+out/
+build/
+app/build/
+.gradle/
+
+# Local configuration (contains local SDK path)
+local.properties
+
+# IntelliJ / Android Studio
+*.iml
+.idea/
+*.ipr
+*.iws
+.navigation/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Keystore & signing secrets
+*.jks
+*.keystore
+*.p12
+
+# Environment & secrets
+.env
+.env.*
+
+# Python (server_example)
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+desktop.ini
